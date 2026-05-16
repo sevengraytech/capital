@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    container_name: cryptovault_api
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      # persist SQLite DB
+      - ./cryptovault.db:/app/cryptovault.db
+
