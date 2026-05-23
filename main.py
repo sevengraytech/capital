@@ -18,22 +18,19 @@ Base.metadata.create_all(bind=engine)
 # ── Auto-migrate: add any columns the model defines that the DB doesn't yet have ──
 def _run_migrations():
     """
-    SQLite doesn't support ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so we inspect
-    the live schema and add any columns that the ORM model defines but the DB lacks.
-    This is safe to run on every startup — it skips columns that already exist.
+    Adds missing columns and tables on every startup.
+    Safe to run repeatedly — skips anything that already exists.
     """
     import sqlite3 as _sqlite3
-    db_path = engine.url.database  # e.g. "./cryptovault.db"
+    db_path = engine.url.database
     conn = _sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    # Map of table → list of (column_name, column_definition)
-    # NOTE: SQLite does NOT support ALTER TABLE ... ADD COLUMN with UNIQUE.
-    # Uniqueness of activation_token is enforced at the application level (secrets.token_urlsafe).
+    # ── Column migrations ─────────────────────────────────────────────────
     migrations = {
         "users": [
             ("registration_completed",      "BOOLEAN NOT NULL DEFAULT 0"),
-            ("activation_token",            "VARCHAR"),   # unique enforced in app, not DB
+            ("activation_token",            "VARCHAR"),
             ("activation_token_expires_at", "DATETIME"),
         ],
     }
@@ -45,6 +42,26 @@ def _run_migrations():
             if col_name not in existing:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
                 print(f"✅ Migration: added {table}.{col_name}")
+
+    # ── Table creation (for tables not caught by create_all on existing DBs) ─
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='password_reset_tokens'"
+    )
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE password_reset_tokens (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                email      VARCHAR NOT NULL,
+                token_hash VARCHAR NOT NULL,
+                expires_at DATETIME NOT NULL,
+                used       BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("CREATE INDEX idx_prt_token_hash ON password_reset_tokens(token_hash)")
+        cur.execute("CREATE INDEX idx_prt_user_id    ON password_reset_tokens(user_id)")
+        print("✅ Migration: created password_reset_tokens table")
 
     conn.commit()
     conn.close()
