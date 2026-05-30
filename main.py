@@ -4,7 +4,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from backend.core.database import engine, SessionLocal, Base
 from backend.models import models
-from backend.routers import auth, user, transactions, investments, profits, loans, admin, claimback, password_reset, chatbot
+from backend.routers import auth, user, transactions, investments, profits, loans, admin, claimback, password_reset, chatbot, visits
+from backend.routers.referrals import router as referrals_router
+
 
 import os
 import random
@@ -32,6 +34,10 @@ def _run_migrations():
             ("registration_completed",      "BOOLEAN NOT NULL DEFAULT 0"),
             ("activation_token",            "VARCHAR"),
             ("activation_token_expires_at", "DATETIME"),
+
+            # Referral system columns (needed by current User model)
+            ("referral_code",              "VARCHAR"),
+            ("referrer_user_id",          "INTEGER"),
         ],
     }
 
@@ -69,6 +75,16 @@ def _run_migrations():
 _run_migrations()
 
 app = FastAPI(title="StrongNodeCapital API", version="2.0.0", docs_url="/docs")
+
+from backend.core.visitor_middleware import VisitorLoggingMiddleware, start_visitor_log_purge_daemon
+
+
+# Capture visitor IPs + basic metadata for admin analytics
+app.add_middleware(VisitorLoggingMiddleware, enabled=True)
+
+# Periodically purge visitor logs older than retention window
+start_visitor_log_purge_daemon()
+
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -110,6 +126,8 @@ app.include_router(admin.router)
 app.include_router(claimback.router)
 app.include_router(password_reset.router)
 app.include_router(chatbot.router)
+app.include_router(referrals_router)
+app.include_router(visits.router)
 
 
 frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
@@ -184,7 +202,7 @@ def validate_production_config():
 
 @app.on_event("startup")
 def seed_data():
-    from backend.models.models import InvestmentPlan, User, PromoCode
+    from backend.models.models import InvestmentPlan, User, PromoCode, AdminSettings
     from backend.core.security import get_password_hash
     db = SessionLocal()
     try:
@@ -229,7 +247,7 @@ def seed_data():
             )
             db.add(admin_user)
 
-        # Force admin flags and password on every startup
+# Force admin flags and password on every startup
         admin_user.is_admin = True
         admin_user.is_active = True
         admin_user.email_verified = True
@@ -246,6 +264,12 @@ def seed_data():
         admin_user.city = admin_user.city or "N/A"
         admin_user.state = admin_user.state or "N/A"
         admin_user.wallet_address = admin_user.wallet_address or ("0x" + sec.token_hex(20))
+        admin_user.referral_code = admin_user.referral_code or ("REF-" + sec.token_hex(6).upper())
+
+        # Seed default referral percentage setting
+        referral_setting = db.query(AdminSettings).filter(AdminSettings.key == "referral_percentage").first()
+        if not referral_setting:
+            db.add(AdminSettings(key="referral_percentage", value="5.0"))
 
         db.commit()
         print("✅ Admin ensured & forced login: strongnodecapital@mailfence.com / admin123")

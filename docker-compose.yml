@@ -15,12 +15,12 @@ services:
       # ── App ───────────────────────────────────────────────────────────
       - APP_BASE_URL=https://strongnodecapitals.com
       # ── Stalwart SMTP (fill these in) ─────────────────────────────────
-      - SMTP_HOST=mail.strongnodecapitals.com
-      - SMTP_PORT=587
+      - SMTP_HOST=smtp.zoho.com
+      - SMTP_PORT=465
       - SMTP_USER=noreply@strongnodecapitals.com
-      - SMTP_PASS=Indian@12 # REQUIRED: set your Stalwart mailbox password here
-      - SMTP_FROM=noreply@strongnodecapitals.com
-      - SMTP_TLS=true
+      - SMTP_PASS=Fgu9Wmzjzmc2 # REQUIRED: set your Stalwart mailbox password here
+      - SMTP_FROM=StrongNode capitals <noreply@strongnodecapitals.com>
+      - SMTP_TLS=false
       # ── Security ──────────────────────────────────────────────────────
       - SECRET_KEY=abcaee9f3dc8f43a3a558b2c937ca9301d2cb68e6199128d24efc98ee8e4544e
        # REQUIRED: set a long random secret before deploying
