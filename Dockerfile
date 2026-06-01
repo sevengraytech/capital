@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY . /app
 
 # Create uploads directory
-RUN mkdir -p /app/frontend/uploads
+RUN mkdir -p /app/frontend/uploads /app/data
 
 EXPOSE 8080
 

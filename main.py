@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from backend.core.database import engine, SessionLocal, Base
+from backend.core.database import engine, SessionLocal, Base, run_sqlite_auto_migrations
 from backend.models import models
 from backend.routers import auth, user, transactions, investments, profits, loans, admin, claimback, password_reset, chatbot, visits
 from backend.routers.referrals import router as referrals_router
+
 
 
 import os
